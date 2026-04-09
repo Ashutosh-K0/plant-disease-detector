@@ -1,0 +1,150 @@
+import streamlit as st
+import numpy as np
+import json
+import tensorflow as tf
+from tensorflow.keras.preprocessing import image
+
+# ------------------ PAGE CONFIG ------------------
+st.set_page_config(
+    page_title="🌿 Plant Disease Detector",
+    layout="centered"
+)
+
+# ------------------ PREMIUM CSS ------------------
+st.markdown("""
+    <style>
+    body {
+        background: linear-gradient(to right, #e8f5e9, #f1f8e9);
+    }
+
+    .title {
+        text-align: center;
+        font-size: 42px;
+        font-weight: bold;
+        color: #1b5e20;
+        margin-bottom: 5px;
+    }
+
+    .subtitle {
+        text-align: center;
+        font-size: 18px;
+        color: #555;
+        margin-bottom: 25px;
+    }
+
+    .card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .result-box {
+        padding: 20px;
+        border-radius: 15px;
+        background: linear-gradient(to right, #a5d6a7, #66bb6a);
+        color: white;
+        text-align: center;
+        font-size: 18px;
+    }
+
+    .footer {
+        text-align: center;
+        color: gray;
+        font-size: 14px;
+        margin-top: 30px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# ------------------ TITLE ------------------
+st.markdown('<div class="title">🌿 Plant Disease Detection</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">AI-powered leaf disease detection system</div>', unsafe_allow_html=True)
+
+# ------------------ SIDEBAR ------------------
+st.sidebar.title("🌿 About")
+st.sidebar.info("This app uses a deep learning model (MobileNetV2) to detect plant diseases from leaf images.")
+
+# ------------------ LOAD CLASS NAMES ------------------
+with open("class_names.json") as f:
+    class_names = json.load(f)
+
+# ------------------ LOAD MODEL ------------------
+@st.cache_resource
+def load_model():
+    model = tf.saved_model.load("plant_model_final")
+    return model
+
+model = load_model()
+infer = model.signatures["serving_default"]
+
+# ------------------ MAIN CARD ------------------
+st.markdown('<div class="card">', unsafe_allow_html=True)
+
+uploaded_file = st.file_uploader("📤 Upload Leaf Image", type=["jpg", "png", "jpeg"])
+
+if uploaded_file is not None:
+    img = image.load_img(uploaded_file, target_size=(224, 224))
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.image(img, caption="Uploaded Image", use_container_width=True)
+
+    # Preprocess
+    img_array = image.img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
+
+    # Prediction
+    input_tensor = tf.convert_to_tensor(img_array, dtype=tf.float32)
+    outputs = infer(input_tensor)
+    prediction = list(outputs.values())[0].numpy()
+
+    predicted_class = class_names[np.argmax(prediction)]
+    confidence = float(np.max(prediction))
+
+    clean_name = predicted_class.replace("___", " - ").replace("_", " ")
+
+    # Result UI
+    with col2:
+        st.markdown(f"""
+        <div class="result-box">
+            <h3>🧠 Prediction</h3>
+            <p><b>{clean_name}</b></p>
+            <p>Confidence: {confidence:.2f}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Stylish confidence bar
+    st.markdown("### 📊 Confidence Level")
+    st.progress(int(confidence * 100))
+
+    # Remedies
+    st.markdown("### 🌿 Suggested Remedy")
+
+    remedies = {
+        "Early blight": "Remove infected leaves and apply fungicide.",
+        "Late blight": "Avoid overwatering and use copper-based fungicide.",
+        "Bacterial spot": "Use disease-free seeds and avoid overhead watering.",
+        "Leaf Mold": "Ensure proper air circulation and reduce humidity.",
+        "Spider mites": "Spray neem oil or insecticidal soap.",
+        "Target Spot": "Remove affected leaves and apply fungicide.",
+        "YellowLeaf Curl": "Control whiteflies and remove infected plants.",
+        "Mosaic virus": "Remove infected plants and sanitize tools.",
+        "healthy": "Your plant is healthy! 🌱 Keep it up!"
+    }
+
+    found = False
+    for key in remedies:
+        if key.lower() in clean_name.lower():
+            st.success(remedies[key])
+            found = True
+            break
+
+    if not found:
+        st.info("Maintain proper watering, sunlight, and plant hygiene.")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ------------------ FOOTER ------------------
+st.markdown('<div class="footer">Made with ❤️ using Deep Learning & Streamlit</div>', unsafe_allow_html=True)
