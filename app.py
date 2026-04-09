@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 import json
-import tensorflow as tf
+from keras.models import load_model
 from tensorflow.keras.preprocessing import image
 
 # ------------------ PAGE CONFIG ------------------
@@ -10,44 +10,35 @@ st.set_page_config(
     layout="centered"
 )
 
-# ------------------ PREMIUM CSS ------------------
+# ------------------ PREMIUM UI ------------------
 st.markdown("""
     <style>
-    body {
-        background: linear-gradient(to right, #e8f5e9, #f1f8e9);
-    }
-
     .title {
         text-align: center;
         font-size: 42px;
         font-weight: bold;
         color: #1b5e20;
-        margin-bottom: 5px;
     }
-
     .subtitle {
         text-align: center;
         font-size: 18px;
         color: #555;
         margin-bottom: 25px;
     }
-
     .card {
         background-color: white;
         padding: 20px;
         border-radius: 15px;
         box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
     }
-
     .result-box {
         padding: 20px;
         border-radius: 15px;
-        background: linear-gradient(to right, #a5d6a7, #66bb6a);
+        background: linear-gradient(to right, #66bb6a, #43a047);
         color: white;
         text-align: center;
         font-size: 18px;
     }
-
     .footer {
         text-align: center;
         color: gray;
@@ -71,12 +62,10 @@ with open("class_names.json") as f:
 
 # ------------------ LOAD MODEL ------------------
 @st.cache_resource
-def load_model():
-    model = tf.saved_model.load("plant_model_final")
-    return model
+def load_model_app():
+    return load_model("plant_disease_model.h5")
 
-model = load_model()
-infer = model.signatures["serving_default"]
+model = load_model_app()
 
 # ------------------ MAIN CARD ------------------
 st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -91,21 +80,19 @@ if uploaded_file is not None:
     with col1:
         st.image(img, caption="Uploaded Image", use_container_width=True)
 
-    # Preprocess
+    # ------------------ PREPROCESS ------------------
     img_array = image.img_to_array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
 
-    # Prediction
-    input_tensor = tf.convert_to_tensor(img_array, dtype=tf.float32)
-    outputs = infer(input_tensor)
-    prediction = list(outputs.values())[0].numpy()
-
+    # ------------------ PREDICTION ------------------
+    prediction = model.predict(img_array)
     predicted_class = class_names[np.argmax(prediction)]
     confidence = float(np.max(prediction))
 
+    # Clean name
     clean_name = predicted_class.replace("___", " - ").replace("_", " ")
 
-    # Result UI
+    # ------------------ RESULT ------------------
     with col2:
         st.markdown(f"""
         <div class="result-box">
@@ -115,11 +102,11 @@ if uploaded_file is not None:
         </div>
         """, unsafe_allow_html=True)
 
-    # Stylish confidence bar
+    # ------------------ CONFIDENCE BAR ------------------
     st.markdown("### 📊 Confidence Level")
     st.progress(int(confidence * 100))
 
-    # Remedies
+    # ------------------ REMEDIES ------------------
     st.markdown("### 🌿 Suggested Remedy")
 
     remedies = {
