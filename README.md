@@ -141,5 +141,3 @@ The application can be deployed using **Streamlit Cloud** for real-time access v
 This project demonstrates how deep learning can be applied in agriculture to assist in **early disease detection**, helping farmers and users take timely action.
 
 ---
-
-## ⭐ If you found this useful, consider giving it a star!
